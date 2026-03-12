@@ -79,10 +79,59 @@ public:
         return result;
     }
 
-    // Invites counterparty to electronic document exchange.
-    // 1. Looks up all provider global identifiers by INN/KPP.
-    // 2. Sends connection request for each found identifier.
-    // Returns list of process identifiers (GUID strings) for all created processes.
+    InvitationsPage fetchOutgoingInvitations(const QString &filter,
+                                             int offset,
+                                             int limit) override
+    {
+        InvitationsPage result;
+
+        std::string url = kBaseUrl + "async/v1/counterparties/invitations/outgoing";
+        std::string query;
+        if (!filter.isEmpty()) query += "filter=" + filter.toStdString();
+        if (offset > 0) {
+            if (!query.empty()) query += "&";
+            query += "offset=" + std::to_string(offset);
+        }
+        if (limit > 0) {
+            if (!query.empty()) query += "&";
+            query += "limit=" + std::to_string(limit);
+        }
+        if (!query.empty()) url += "?" + query;
+
+        m_session.SetOption(cpr::Url{url});
+        cpr::Response r = m_session.Get();
+        if (r.status_code != 200) {
+            return result;
+        }
+
+        QJsonDocument jsonResponse = QJsonDocument::fromJson(QByteArray::fromStdString(r.text));
+        const QJsonObject root = jsonResponse.object();
+        result.count = root.value("count").toInt();
+        const QJsonArray dataArray = root.value("data").toArray();
+
+        result.invitations.reserve(dataArray.size());
+        for (const QJsonValue &value : dataArray) {
+            const QJsonObject invitationObject = value.toObject();
+
+            InvitationInfo invitationInfo;
+            invitationInfo.id = invitationObject.value("id").toString();
+            invitationInfo.invitationStatus = invitationObject.value("invitationStatus").toString();
+
+            fillCounterpartyFromJson(invitationObject.value("recipient").toObject(), invitationInfo.recipient);
+
+            const QJsonObject operatorObject = invitationObject.value("operator").toObject();
+            if (!operatorObject.isEmpty()) {
+                invitationInfo.operatorInfo.id = operatorObject.value("id").toString();
+                invitationInfo.operatorInfo.prefix = operatorObject.value("prefix").toString();
+                invitationInfo.operatorInfo.name = operatorObject.value("name").toString();
+            }
+
+            result.invitations.append(invitationInfo);
+        }
+
+        return result;
+    }
+
     bool inviteCounterpartyByInn(const QString &inn,
                                  const QString &kpp) override
     {

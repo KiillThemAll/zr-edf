@@ -37,6 +37,20 @@ public:
         QVector<ContactInfo> contacts;
     };
 
+    struct InvitationInfo
+    {
+        QString id;
+        QString invitationStatus;
+        CounterpartyInfo recipient;
+        OperatorInfo operatorInfo;
+    };
+
+    struct InvitationsPage
+    {
+        int count = 0;
+        QVector<InvitationInfo> invitations;
+    };
+
     explicit AbstractEdfDriver() {}
     virtual ~AbstractEdfDriver() = default;
 
@@ -46,6 +60,10 @@ public:
     virtual ContactsPage fetchCounterparties(const QString &filter,
                                              int offset,
                                              int limit) = 0;
+
+    virtual InvitationsPage fetchOutgoingInvitations(const QString &filter,
+                                                     int offset,
+                                                     int limit) = 0;
 
     virtual bool inviteCounterpartyByInn(const QString &inn,
                                                 const QString &kpp) = 0;
